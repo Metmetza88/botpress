@@ -1,0 +1,13 @@
+bin/
+obj/
+dist/
+news/
+*.bak*
+.env*
+!.env.example
+*.pem
+*.key
+credentials*.json
+# machine state / run logs (not source)
+botteam-paused.json
+*.log

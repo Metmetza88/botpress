@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-src http://127.0.0.1:5173">
+  <title>BotPress</title>
+  <script src="theme.js"></script>
+  <link rel="stylesheet" href="app.css">
+  <link rel="stylesheet" href="chat.css">
+</head>
+<body>
+  <div class="aurora"></div>
+  <div class="app">
+    <aside class="side">
+      <div class="brand" id="brand" role="button" tabindex="0" title="หน้าแรก"><div class="brand-mark"></div>
+        <div class="brand-text">BotPress<small>สำนักข่าวบอท</small></div></div>
+      <div class="side-actions">
+        <label class="search"><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input id="search" placeholder="ค้นหาบอท" autocomplete="off"></label>
+        <button class="btn primary icon" id="newAgent" title="สร้างบอทใหม่"><svg class="i" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+      </div>
+      <div class="side-scroll" id="sideList"></div>
+      <div class="side-foot" id="sideFoot"></div>
+    </aside>
+    <main class="main" id="main"></main>
+  </div>
+  <div class="toasts" id="toasts"></div>
+  <script src="app.js"></script>
+  <script src="monitor.js"></script>
+  <script src="chat.js"></script>
+  <script src="work.js"></script>
+  <script src="newsdesk.js"></script>
+</body>
+</html>
