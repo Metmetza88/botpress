@@ -273,7 +273,7 @@ Routine ทั้งหมดสร้างโดย `seed-bots.mjs` (`ROUTINES
 |---|---|---|
 | Windows 11 + WSL2 distro `Ubuntu-24.04` | Rakazo และ docker | ต้องตั้งค่าตามหัวข้อย่อย "ตั้งค่า WSL" ด้านล่าง (user `rakazo` เป็น default, systemd, mirrored networking) |
 | docker ใน WSL พร้อม image `ghcr.io/elie222/rakazo/app:v0.1.6` | Rakazo และ container `botpress-newsdesk` | newsdesk รันด้วย `--pull never` (`botpress.sh:10, 21`) image จึงต้องอยู่ในเครื่องแล้ว |
-| Rakazo v0.1.6 ที่ `~/rakazo` ใน WSL | แพลตฟอร์มบอท (web :5173, api :3110) | ติดตั้งและดูแลฝั่ง BotTeam ดูวิธีที่ `D:\localai\RUNBOOK.md` |
+| Rakazo v0.1.6 ที่ `~/rakazo` ใน WSL | แพลตฟอร์มบอท (web :5173, api :3110) | ดูแลฝั่ง BotTeam (`D:\localai\RUNBOOK.md` ไม่มีขั้นติดตั้งจากศูนย์ เครื่องใหม่ดูหัวข้อย่อย "เครื่องใหม่ที่ยังไม่มี `D:\localai`" ด้านล่าง) |
 | llama-server + Gemma 4 | LLM ของโหมด Local (:8080, ชื่อโมเดล `gemma4`) | เปิดด้วย `D:\localai\serve-th.bat` (`-np 2` คือ 2 slot) |
 | socat bridge 2 ตัวใน WSL | ให้ container เรียก LLM และ BCAiRouter บน Windows ได้ | `llama-bridge.service` (172.17.0.1:18080 → :8080) และ `bcai-bridge.service` (172.17.0.1:18399 → :3399) ตาม `D:\localai\RUNBOOK.md` |
 | NVIDIA GPU + `nvidia-smi` | LLM, Monitor และ `--selftest` | ถ้าไม่มี GPU, `--selftest` จะ FAIL เพราะตรวจ `VramTotal>0` เครื่องที่ใช้ทดสอบคือ RTX 5060 Ti 16 GB ซึ่ง Gemma 4 ใช้ VRAM ราว 15.5/16 GB (`D:\localai\RUNBOOK.md` §9) |
@@ -296,10 +296,10 @@ python -c "from faster_whisper import WhisperModel; WhisperModel('medium', devic
 
 แอปเรียก `wsl.exe -d Ubuntu-24.04 --exec bash ...` โดยไม่ระบุ user (`Monitor.cs:135`) ส่วน `tools/botteam-pause.mjs` ใช้ `-u rakazo` และ `rakazo.sh` เริ่มด้วย `cd ~/rakazo` ดังนั้น user ต้องชื่อ `rakazo` ตรงตัวและเป็น default user ค่าที่เครื่องนี้ใช้อยู่จริงมีดังนี้
 
-- `/etc/wsl.conf` ใน distro:
+- `/etc/wsl.conf` ใน distro (ต้องเปิด systemd เพราะ `llama-bridge` และ `bcai-bridge` เป็น systemd service):
   ```ini
   [boot]
-  systemd=true          # llama-bridge / bcai-bridge เป็น systemd service
+  systemd=true
 
   [user]
   default=rakazo
@@ -407,7 +407,7 @@ Rakazo ยังรัน routine ของ BotTeam ฝั่ง server ต่�
 1. **ปิด BotPress ก่อน** เพราะฝั่ง BotTeam ไม่ได้กันการเปิดซ้อนกับ BotPress
 2. เปิด BotAdmin ด้วย `--devtools-port 9223` แล้วรอ Rakazo พร้อม
 3. รัน `node tools/botteam-pause.mjs resume` คำสั่งนี้จะเปิดเฉพาะ routine ที่บันทึกไว้กลับมา แล้วเปลี่ยนชื่อไฟล์ state เป็น `botteam-paused.<ts>.done.json`
-4. ไฟล์ `.done.json` **ไม่ถูก gitignore** (`.gitignore` ตัดแค่ `botteam-paused.json`) ต้องลบเองก่อน `git add -A` ไฟล์นี้ไม่มีความลับ มีแค่ id ของ routine และบอท
+4. ไฟล์ `botteam-paused.<ts>.done.json` ที่ได้ถูก gitignore แล้ว (`botteam-paused*.json`) ไม่มีความลับ มีแค่ id ของ routine และบอท เก็บไว้ดูย้อนหลังหรือลบทิ้งก็ได้
 
 ### ขั้นที่ 2: build
 
@@ -467,12 +467,17 @@ node seed-bots.mjs          # สร้างจริงผ่านแอป�
   - Approval rule 6 ข้อ
   - Routine 8 ตัว
 - สคริปต์เป็น **idempotent** จับคู่ด้วยชื่อ รันซ้ำได้โดยไม่สร้างซ้ำ
-- ตอนจบจะพิมพ์ JSON ที่ควรมีค่า `"newsdesk": 15`, `"publishOnly": "บก.บห."` และ `"approvals": 6` แล้วพาแอปกลับหน้าแรก
+- ตอนจบจะพิมพ์ JSON แล้วพาแอปกลับหน้าแรก ค่า `newsdesk`, `publishOnly` และ `approvals` เป็นค่าคงที่ที่พิมพ์ทุกครั้ง พิสูจน์อะไรไม่ได้ **ให้ดูค่าที่มาจากผลจริงแทน**
+  - `"seededBots": 15`
+  - `sections` มี `กองบรรณาธิการ: 2`, `ฝ่ายข่าว: 8` และ `ฝ่ายตรวจและผลิต: 5`
+  - `groups` มีครบ 3 ห้อง และแต่ละห้องเป็น `(6)`
+  - `"routinesCreated": 8` ตอนรันครั้งแรก (รันซ้ำจะได้ 0)
+- ถ้าจะตรวจว่ามีแค่ `บก.บห.` ที่เห็นเครื่องมือ `publish_story` ให้ดูในเว็บ Rakazo (ปุ่ม "เว็บ Rakazo" ใน Monitor) เพราะ UI ของแอปไม่มีหน้าแสดงสิทธิ์ MCP (เมนูที่ต้องเข้าในเว็บ Rakazo ยังไม่ได้ตรวจ)
 
 ### ขั้นที่ 6: ตรวจว่าระบบพร้อม
 
 ```bash
-wsl -d Ubuntu-24.04 -- bash /mnt/d/botpress/botpress.sh status | tail -1   # ต้องได้ NEWSDESK running
+MSYS_NO_PATHCONV=1 wsl -d Ubuntu-24.04 -- bash /mnt/d/botpress/botpress.sh status | tail -1   # ต้องได้ NEWSDESK running
 curl -s http://127.0.0.1:8080/health          # llama-server
 curl -s http://127.0.0.1:3110/health          # Rakazo API: {ok, sandbox}
 node newsdesk/server.mjs --selftest           # selftest OK (52 checks)
@@ -495,6 +500,15 @@ node newsdesk/server.mjs --selftest           # selftest OK (52 checks)
 ## 8. การใช้งานประจำวัน
 
 Routine ทำงานเองตามตารางในหัวข้อ 5 หน้าที่ของลุงจืดคือเปิดแอปทิ้งไว้ ดูโต๊ะข่าว และ **อนุมัติหรือปฏิเสธการเผยแพร่**
+
+### เปิด ปิด และรีบูต
+
+- **กดปิดหน้าต่าง = ออกจากแอป** ไม่ได้ย่อลง tray (ไม่มี handler ตอนปิดใน `MainWindow.xaml.cs`) ไอคอน tray จะขึ้นเฉพาะหลังจากแอปเคยเด้งแจ้งเตือนแล้ว (`MainWindow.xaml.cs:143-162`)
+- **แอปไม่เปิดเองตอน logon** (ในโค้ดไม่มี Run key หรือ scheduled task) หลังรีบูตเครื่อง LLM, WSL และ Rakazo จะยังไม่ขึ้นจนกว่าจะมีคนเปิดแอป routine 07:00 จึงไม่รันถ้ายังไม่ได้เปิดแอป **ควรเปิดแอปก่อน 07:00 ทุกวัน**
+- **ปิดแอปแล้ว** LLM, Rakazo และ routine ยังทำงานต่อ เพราะแอปไม่ได้สั่งหยุดตอนออก แต่สิ่งที่แอปทำให้จะหยุดหมด ได้แก่
+  - revive รายนาที และการเรียก `botpress.sh status` ทุก 3 วินาที ซึ่งเป็นตัวสร้าง container โต๊ะข่าวใหม่ (`ui/app.js:286-289`) ถ้า worker ของ Rakazo restart ระหว่างนี้ บอทจะใช้เครื่องมือโต๊ะข่าวไม่ได้จนกว่าจะเปิดแอปใหม่
+  - watchdog ของ LLM (`MainWindow.xaml.cs:26`)
+  - การแจ้งเตือนเมื่อมีการ์ดรออนุมัติ
 
 ### แถบซ้าย (sidebar)
 
@@ -551,7 +565,12 @@ Routine ทำงานเองตามตารางในหัวข้อ
 | **ผลงาน** | ไฟล์จาก `artifacts/list` และไฟล์ในห้องรวม |
 | **ค่าใช้จ่าย** | token usage โมเดล `gemma4` และ `bcai/*` ไม่มีค่าใช้จ่าย |
 
-**วิธีอนุมัติข่าว:** เปิดการ์ด → กด "ดูข่าวที่รอเผยแพร่" แล้วอ่านเนื้อหา แหล่งอ้างอิง และผลตรวจ → ถ้าข่าวผ่าน กด "อนุญาตครั้งนี้" ถ้าไม่ผ่าน กด "ปฏิเสธ" แล้วพิมพ์บอก `บก.บห.` ในแชทว่าต้องแก้อะไร
+**วิธีอนุมัติข่าว:**
+
+1. เปิดการ์ดในแท็บ "รอคุณ" แล้วจำพาดหัวไว้
+2. กด "ดูข่าวที่รอเผยแพร่" ปุ่มนี้แค่เปิดบอร์ดโต๊ะข่าว ไม่ได้เปิดเรื่องให้ (`ui/chat.js:403`, `ui/work.js:89`)
+3. กดการ์ดเรื่องที่พาดหัวตรงกันในคอลัมน์ "รอ บก.บห." แล้วอ่านเนื้อข่าว แหล่งอ้างอิง และผลตรวจ
+4. กลับไปที่ศูนย์งาน แท็บ "รอคุณ" ถ้าข่าวผ่าน กด "อนุญาตครั้งนี้" ถ้าไม่ผ่าน กด "ปฏิเสธ" แล้วพิมพ์บอก `บก.บห.` ในแชทว่าต้องแก้อะไร
 
 ### Monitor
 
@@ -619,14 +638,14 @@ D:\botpress
 ├─ tests/
 │  ├─ cdp.mjs              CDP client ขนาดเล็ก (default port 9224)
 │  ├─ e2e.mjs              e2e ผ่าน UI จริง
-│  └─ newsroom-live.mjs    เดินข่าว 1 เรื่องจริงจนเผยแพร่ (log ไปที่ *.log ซึ่ง gitignored)
+│  └─ newsroom-live.mjs    เดินข่าว 1 เรื่องจริงจนเผยแพร่ (พิมพ์ลง stdout ถ้าจะเก็บ log ให้ redirect เอง เช่น > tests/newsroom-live.log ซึ่ง *.log ถูก gitignore)
 ├─ tools/
 │  ├─ botteam-pause.mjs    พักหรือคืน BotTeam
 │  └─ make-assets.py       แปลง assets/src เป็น ui/img, ui/avatars และ assets/app.ico
 ├─ .gitignore              bin/ obj/ dist/ news/ .env* *.pem *.key credentials*.json botteam-paused.json *.log ...
 └─ .gitattributes          *.sh ใช้ eol=lf (bash ใน WSL)
 
-ไม่อยู่ใน git: bin/, obj/, dist/ (ผล build), news/ (ข้อมูลข่าวและ token), botteam-paused.json
+ไม่อยู่ใน git: bin/, obj/, dist/ (ผล build), news/ (ข้อมูลข่าวและ token), botteam-paused*.json, *.log
 ```
 
 ---
@@ -682,7 +701,7 @@ D:\botpress
 | ตัวแปร | ใช้ที่ | ผล |
 |---|---|---|
 | `BOTPRESS_UI_DIR` | `MainWindow.xaml.cs:62` | ให้ WebView2 ใช้โฟลเดอร์นี้แทน `<exe>\ui` เหมาะกับการแก้ UI โดยไม่ต้อง publish ใหม่ แอปล้าง cache ทุกครั้งที่เปิด |
-| `NEWS_PORT` | `newsdesk/server.mjs:17` | port ของโต๊ะข่าว ค่าเริ่มต้นคือ 7790 ถ้าตั้งเป็น `0` จะสุ่ม port |
+| `NEWS_PORT` | `newsdesk/server.mjs:17` | port ของโต๊ะข่าว ค่าเริ่มต้นคือ 7790 ถ้าตั้งเป็น `0` จะสุ่ม port **ใช้เฉพาะ selftest หรือรันทดลองเอง** endpoint ที่บอทเรียกเขียนตายตัวเป็น `http://localhost:7790/mcp` และ seed ตั้ง endpoint แค่ตอนสร้าง MCP server ครั้งแรก รอบถัดไปอัปเดตแค่ secret (`seed-bots.mjs:236, 239`) ถ้าเปลี่ยน port ของ container จริง บอททุกตัวจะเรียกโต๊ะข่าวไม่ได้ ต้องแก้ endpoint ทั้งใน `seed-bots.mjs` และใน MCP server ที่มีอยู่แล้วใน Rakazo ด้วย |
 | `NEWS_DIR` | `newsdesk/server.mjs:346` | โฟลเดอร์เก็บข้อมูลและ token ค่าเริ่มต้นคือ `/news` ใน container ซึ่ง mount มาจาก `D:\botpress\news` |
 
 ### ข้อมูลที่แอปเขียนลงเครื่อง
@@ -697,7 +716,10 @@ D:\botpress
 | `%LOCALAPPDATA%\BotPress\theme.txt` | ธีมที่เลือก |
 | `D:\botpress\botteam-paused.json` | id ของ routine และคอมพิวเตอร์ BotTeam ที่ถูกพักไว้ |
 
-**สำรองข้อมูล:** `botpress.sh backup` เรียก `rakazo.sh backup` ซึ่ง dump postgres และ appdata ของ Rakazo ไปที่ `D:\localai\backups\rakazo-<ts>` ข้อมูลนี้รวมของทั้ง BotTeam และ BotPress **แต่ไม่ได้รวม `D:\botpress\news\`** ต้องสำรองโฟลเดอร์ข่าวเอง และโฟลเดอร์นี้ไม่อยู่ใน git ด้วย
+**สำรองข้อมูล:** `botpress.sh backup` เรียก `rakazo.sh backup` ซึ่ง dump postgres และ appdata ของ Rakazo ไปที่ `D:\localai\backups\rakazo-<ts>` ข้อมูลนี้รวมของทั้ง BotTeam และ BotPress แต่ **ไม่ได้รวม** 2 อย่างต่อไปนี้ ต้องสำรองเองทุกครั้ง และใส่ไว้ในขั้นย้ายเครื่องด้วย
+
+- `D:\botpress\news\` (ข่าวและ token) ซึ่งไม่อยู่ใน git ด้วย
+- `%LOCALAPPDATA%\BotPress\owner.json` **เป็นที่เดียวที่เก็บรหัสของบัญชี `owner@botpress.local`** เก็บแบบความลับ ถ้าไฟล์นี้หาย (ลง Windows ใหม่ ย้ายเครื่อง หรือลบ profile) แต่ฐานข้อมูล Rakazo ยังอยู่ แอปจะสร้างรหัสใหม่ ล็อกอินไม่ผ่าน และสมัครซ้ำไม่ได้เพราะอีเมลซ้ำ (`RakazoClient.cs:129-133, 150-158`) แอปจึงล็อกอินไม่ได้ตลอดไปจนกว่าจะกู้ไฟล์คืน
 
 ---
 
@@ -735,19 +757,20 @@ D:\botpress
 
 ผลที่ได้
 
-- ภาพหน้าจอ `e2e-desk.png`, `e2e-steps.png`, `e2e-chat.png` และ `e2e-group.png` อยู่ใน outDir
-- บล็อก `finally` จะ archive บอทและห้องที่สร้างทิ้ง
+- ภาพหน้าจอ `e2e-desk.png`, `e2e-steps.png`, `e2e-chat.png` และ `e2e-group.png` อยู่ใน outDir สคริปต์ไม่สร้างโฟลเดอร์ให้ เครื่องใหม่ต้อง `mkdir -p /d/tmp` ก่อน หรือส่ง outDir ที่มีอยู่แล้ว ไม่อย่างนั้นจะล้มด้วย ENOENT
+- บล็อก `finally` จะ archive บอทและห้องที่สร้างทิ้ง แต่ไม่ได้ลบ ทุกครั้งที่รันจึงมีบอท 2 ตัวและห้อง 1 ห้องที่ archive แล้วค้างอยู่ในบัญชี
 
 ### newsroom-live (ใช้ LLM และ Rakazo จริง ใช้เวลานาน)
 
 1. สั่ง `นักข่าว AI` ให้เสนอข่าว 1 เรื่อง
 2. อ่าน `news/stories.json` ทุก 20 วินาที
 3. เมื่อเรื่องอยู่ในสถานะ `pitched` จะ kick routine "รวบรวมข่าวเช้า"
-4. ถ้าสถานะไม่ขยับ 12 นาที จะ kick เจ้าของขั้นนั้นตามชื่อ routine ใน `seed-bots.mjs`
+4. ถ้าสถานะไม่ขยับ 12 นาที ขั้น `assigned` และ `drafting` จะส่งข้อความแชทหานักข่าวตรง ๆ (นักข่าวไม่มี routine) ส่วนขั้นอื่นจะ kick routine ของเจ้าของขั้นนั้นตามชื่อใน `seed-bots.mjs` (`tests/newsroom-live.mjs:58-63`)
 5. **สคริปต์จะตอบ "allow" เองเฉพาะการ์ด `publish_story` ที่มีพาดหัวของเรื่องนี้** การรันเทสต์นี้จึงเท่ากับยอมให้เผยแพร่ข่าวจริง 1 เรื่องโดยไม่ผ่านการอ่านของคน ส่วนการ์ดอื่นจะถูกปล่อยไว้ให้คนตอบ
 
 **วิธีอ่านผล:**
 
+- ทุกอย่างพิมพ์ลง stdout ไม่มีไฟล์ log ถ้าจะเก็บไว้ให้ redirect เอง เช่น `node tests/newsroom-live.mjs > tests/newsroom-live.log` (`*.log` ถูก gitignore)
 - ระหว่างรันจะพิมพ์ทีละบรรทัด เช่น `[49.4m] <id> pitched -> assigned by <ใคร>`
 - ตอนจบจะพิมพ์ JSON ที่มี `result`, `minutes`, `kicks`, `id`, `status`, `headline`, `beat`, `sources`, `hasImage`, `hasSocial`, `steps`, `file`, `fileExists`
 - ถ้า `kicks` สูง แปลว่าบอทไม่ขยับเองตามขั้นตอน และต้องปรับ prompt
@@ -780,12 +803,26 @@ D:\botpress
 2. `seed-bots.mjs` แก้ `BEATS`, รายการนักข่าว และ `CHECK_1` / `CHECK_2`
    - `assert.equal(BOTS.length, 15)` ต้องแก้ด้วย
    - **ห้องข่าวทั้ง 3 ห้องเต็ม 6 คนแล้ว** ต้องเพิ่มห้องใหม่
-3. `ui/newsdesk.js` แก้ `BEATS` (:8-9)
-4. `ui/app.js` เพิ่มชื่อใน `PORTRAITS` แล้วเพิ่มภาพที่ `assets/src/<key>.png` และรัน make-assets
-5. `tests/newsroom-live.mjs` แก้การจับคู่สายกับผู้ตรวจ (:60-61)
-6. รีสตาร์ท container โต๊ะข่าวเพื่อโหลดโค้ดใหม่ ด้วย `wsl -d Ubuntu-24.04 -- docker restart botpress-newsdesk` หรือหยุดแล้วเริ่ม Rakazo จาก Monitor
-7. `node seed-bots.mjs --rewrite` เพื่อให้รายชื่อทีมใน prompt ของทุกบอทเป็นรายชื่อใหม่
-8. publish แอปใหม่ (ดูหัวข้อ "build ใหม่" ด้านล่าง)
+   - prompt ของ routine "ประชุมข่าวเช้า" ใน `ROUTINES` มีข้อความ "ส่งใบงานถึงนักข่าวทั้ง 8 สาย" เขียนตายตัว (:152) ต้องแก้จำนวนด้วย
+3. `ui/newsdesk.js` แก้ `BEATS` (:8-9) ตัวนี้จับคู่ **รหัสสาย → ชื่อสาย** ใช้แสดงบนบอร์ด
+4. `ui/work.js` แก้ `BEATS` (:141-142) ตัวนี้เป็นคนละตัวกับข้อ 3 จับคู่ **ชื่อนักข่าว → ชื่อสาย** ใช้ทำเทมเพลต quick-start "ส่องข่าวสาย <beat>" ถ้าไม่เพิ่ม นักข่าวใหม่จะไม่มีเทมเพลต เวลาของเทมเพลตคำนวณจากลำดับในรายการ (08:00 แล้วบวกทีละ 10 นาที) ตรวจว่าไม่ชนกับ routine อื่น
+5. `ui/app.js` เพิ่มชื่อใน `PORTRAITS` แล้วเพิ่มภาพที่ `assets/src/<key>.png` และรัน make-assets
+6. `tests/newsroom-live.mjs` แก้การจับคู่สายกับผู้ตรวจ (:60-61)
+7. รีสตาร์ท container โต๊ะข่าวเพื่อโหลดโค้ดใหม่ ด้วย `wsl -d Ubuntu-24.04 -- docker restart botpress-newsdesk` หรือหยุดแล้วเริ่ม Rakazo จาก Monitor
+8. `node seed-bots.mjs --rewrite` เพื่อให้รายชื่อทีมใน prompt ของทุกบอท และ prompt ของ routine "ประชุมข่าวเช้า" เป็นข้อความใหม่
+9. publish แอปใหม่ (ดูหัวข้อ "build ใหม่" ด้านล่าง)
+
+### เปลี่ยนชื่อบอท
+
+ชื่อบอทถูกใช้เป็นตัวจับคู่หลายที่ ต้องแก้ให้ตรงกันทุกไฟล์
+
+- `seed-bots.mjs`: `BOTS`, ข้อความใน `TEAM`/role ที่อ้างชื่อบอทอื่น, `GROUPS` และ `ROUTINES`
+- `ui/app.js:73` `PORTRAITS` (ชื่อ → อวาตาร์)
+- `ui/work.js:141-149` `BEATS` และ `TEMPLATES` (ชื่อบอทและชื่อ routine ของเทมเพลต)
+- `ui/newsdesk.js:70` หาบอทชื่อ `บก.บห.` เพื่อทำปุ่ม "ไปแชท บก.บห."
+- `tests/newsroom-live.mjs` (:26, :58-63) สั่งงานและ kick ตามชื่อบอทและชื่อ routine
+
+**คำเตือน:** seed จับคู่บอทด้วยชื่อ (`seed-bots.mjs:207`) ถ้าเปลี่ยนชื่อใน `seed-bots.mjs` แต่บอทใน Rakazo ยังชื่อเดิม seed จะสร้างบอทใหม่ซ้ำอีกตัว UI ของแอปไม่มีปุ่มเปลี่ยนชื่อบอท ส่วน API `bots/update` ของ Rakazo จะรับ field ชื่อหรือไม่ **(ยังไม่ได้ตรวจ)** ถ้าเปลี่ยนชื่อไม่ได้ ทางที่เหลือคือ archive บอทเดิมแล้ว seed ใหม่ ซึ่งบอทใหม่จะไม่มีความจำและแชทเดิม
 
 ### เปลี่ยนตาราง routine
 
@@ -834,21 +871,23 @@ D:\botpress
 | อาการ | สาเหตุ | วิธีแก้ |
 |---|---|---|
 | เปิดแอปแล้วขึ้น "BotTeam กำลังเปิดอยู่ — ปิด BotTeam ก่อนเปิด BotPress" | มี process `BotAdmin` อยู่ | ปิด BotAdmin.exe ให้หมด (ดูใน tray หรือ Task Manager) แล้วเปิดใหม่ |
-| ขึ้น "BotPress เปิดอยู่แล้ว" | มีหน้าต่างเปิดอยู่แล้ว (mutex) | ดูใน tray หรือ Task Manager |
+| ขึ้น "BotPress เปิดอยู่แล้ว" | มีหน้าต่างเปิดอยู่แล้ว (mutex) | ดูที่ taskbar หรือ Task Manager (ไอคอน tray ของ BotPress ขึ้นเฉพาะหลังจากเคยเด้งแจ้งเตือน) |
 | บอทรันแล้วล้มภายในประมาณ 200 ms ด้วย "Connection error." | โหมด LLM ชี้ไปที่ backend ที่ปิดอยู่ เช่น เลือก BCAi ตอนที่ BCAiRouter ไม่ได้รัน หรือ llama-server ยังไม่ขึ้น | ดูปุ่มโหมดที่ซ้ายล่างแล้วกด 🖥 Local หรือเปิด BCAiRouter ที่ `D:\bcproxy` จากนั้นดู Monitor ว่า LLM "พร้อม" |
 | แก้ prompt ใน `seed-bots.mjs` แล้วบอทยังทำแบบเดิม | seed ไม่ทับ instructions ที่มีอยู่แล้ว | `node seed-bots.mjs --rewrite` |
-| `seed-bots.mjs` บอกว่ายังไม่มี token แล้วจบ | container newsdesk ยังไม่เคยเริ่ม | เปิด BotPress ให้ Rakazo เริ่ม (หรือ `wsl -d Ubuntu-24.04 -- bash /mnt/d/botpress/botpress.sh newsdesk`) แล้วรันใหม่ |
+| `seed-bots.mjs` บอกว่ายังไม่มี token แล้วจบ | container newsdesk ยังไม่เคยเริ่ม | เปิด BotPress ให้ Rakazo เริ่ม (หรือ `MSYS_NO_PATHCONV=1 wsl -d Ubuntu-24.04 -- bash /mnt/d/botpress/botpress.sh newsdesk`) แล้วรันใหม่ |
 | บอทไม่เห็นเครื่องมือโต๊ะข่าว หรือเรียกแล้วได้ 401 | `news/.token` ถูกสร้างใหม่ แต่ Rakazo ยังเก็บ token เก่า | `node seed-bots.mjs` ซึ่งส่ง secret ใหม่ทุกรอบ |
 | หน้าแรกขึ้น "อ่านโต๊ะข่าวไม่ได้" หรือบอร์ดแจ้ง error | `stories.json` เป็น JSON ที่เสีย | ซ่อม JSON ก่อน (server ไม่ยอมเริ่มและไม่แตะไฟล์) แล้วดู `wsl -d Ubuntu-24.04 -- docker logs --tail 50 botpress-newsdesk` |
-| Monitor แสดง Rakazo พร้อม แต่บอทเรียกโต๊ะข่าวไม่ได้ | container `botpress-newsdesk` ไม่ทำงาน และ Monitor ไม่แสดงสถานะนี้ | `wsl -d Ubuntu-24.04 -- bash /mnt/d/botpress/botpress.sh status \| tail -1` ต้องได้ `NEWSDESK running` ถ้าได้ `missing` ให้ตรวจว่ามี image `ghcr.io/elie222/rakazo/app:v0.1.6` ในเครื่อง (`--pull never`) |
-| `computer_act` ได้ 500 ตลอด หรือจอบอทดำ | supervisor หลุดจาก network ของคอมพิวเตอร์ หรือคอมพิวเตอร์ตาย | แอปเรียก revive ให้ทุกนาทีอยู่แล้ว ถ้าจะสั่งเอง: `wsl -d Ubuntu-24.04 -- bash /mnt/d/botpress/botpress.sh revive` |
+| Monitor แสดง Rakazo พร้อม แต่บอทเรียกโต๊ะข่าวไม่ได้ | container `botpress-newsdesk` ไม่ทำงาน และ Monitor ไม่แสดงสถานะนี้ | `MSYS_NO_PATHCONV=1 wsl -d Ubuntu-24.04 -- bash /mnt/d/botpress/botpress.sh status \| tail -1` ต้องได้ `NEWSDESK running` ถ้าได้ `missing` ให้ตรวจว่ามี image `ghcr.io/elie222/rakazo/app:v0.1.6` ในเครื่อง (`--pull never`) |
+| `computer_act` ได้ 500 ตลอด หรือจอบอทดำ | supervisor หลุดจาก network ของคอมพิวเตอร์ หรือคอมพิวเตอร์ตาย | แอปเรียก revive ให้ทุกนาทีอยู่แล้ว ถ้าจะสั่งเอง: `MSYS_NO_PATHCONV=1 wsl -d Ubuntu-24.04 -- bash /mnt/d/botpress/botpress.sh revive` |
 | LLM ค้าง (`/health` ตอบแต่ไม่สร้าง token) | llama-server ค้าง | watchdog รีสตาร์ทเองภายใน 3 นาที และ log อยู่ที่ `D:\localai\logs\llama-server.wedged-*.log` หรือกดรีสตาร์ทใน Monitor |
 | `dotnet publish` ล้มเพราะไฟล์ถูกใช้อยู่ | `dist\BotPress.exe` ยังเปิดอยู่ | ปิดแอปก่อน build |
 | `--selftest` ขึ้น `SELFTEST FAIL` ที่ GPU | ไม่มี NVIDIA หรือไม่มี `nvidia-smi` | selftest ต้องใช้ GPU ส่วนข้ออื่นอ่านต่อจากข้อความ FAIL |
-| ปุ่มไมค์ไม่ทำงาน | ไม่มี `python` ใน PATH, ไม่มี `faster_whisper` หรือไม่มีโมเดล medium ใน HF cache | ติดตั้งและโหลดโมเดลล่วงหน้า เพราะ `stt.py` ไม่ดาวน์โหลดเอง |
-| ล็อกอิน Rakazo ไม่ได้ | Rakazo ยังไม่พร้อม หรือรหัสใน `owner.json` ไม่ตรงกับบัญชี | รอ Rakazo พร้อมแล้วเปิดแอปใหม่ **ห้ามเปิดค่าใน `owner.json` มาแสดง** |
+| ปุ่มไมค์ไม่ทำงาน | ไม่มี `python` ใน PATH (หรือ `python` เป็น alias ของ Microsoft Store), ไม่มี `faster_whisper` หรือไม่มีโมเดล medium ใน HF cache | ติดตั้งและโหลดโมเดลล่วงหน้าตามคำสั่งในหัวข้อ 6 เพราะ `stt.py` ไม่ดาวน์โหลดเอง |
+| ล็อกอิน Rakazo ไม่ได้ (Rakazo ยังไม่พร้อม) | แอปเรียก Rakazo ตอนที่ยังบูตไม่เสร็จ | รอ Monitor ขึ้นว่า Rakazo "พร้อม" แล้วเปิดแอปใหม่ |
+| ล็อกอิน Rakazo ไม่ได้ ทั้งที่ Rakazo พร้อมแล้ว | `owner.json` ไม่ตรงกับบัญชีในฐานข้อมูล เช่น ไฟล์หายแล้วแอปสร้างรหัสใหม่ (สมัครซ้ำไม่ได้เพราะอีเมลซ้ำ) | กู้ `%LOCALAPPDATA%\BotPress\owner.json` จาก backup (ดูหัวข้อ 10) วิธีรีเซ็ตรหัสฝั่ง Rakazo **(ยังไม่ได้ตรวจ ต้องถามลุงจืด)** **ห้ามเปิดค่าใน `owner.json` มาแสดง** |
+| เรียก Rakazo แล้วขึ้น "ไม่พบคีย์ rakazo- ใน llm-api-key.txt" | `D:\localai\llm-api-key.txt` ไม่มีบรรทัดที่ขึ้นต้นด้วย `rakazo-` | ให้เจ้าของเครื่องเพิ่มบรรทัดคีย์ตามรูปแบบในหัวข้อ 6 แล้วรีสตาร์ท LLM ห้ามพิมพ์ค่าคีย์ลงแชทหรือ log |
 | เรื่องค้างเกิน 3 ชั่วโมง (การ์ดสีอำพัน) | ยังไม่ถึงรอบ routine หรือบอทข้ามขั้น | ศูนย์งาน → งานประจำ → "รันเลย" ที่ routine ของเจ้าของขั้นนั้น หรือแชทสั่งบอทตรง ๆ |
-| การ์ดอนุมัติเผยแพร่ซ้ำ 2 ใบ | `บก.บห.` ขอเผยแพร่เรื่องเดิม 2 ครั้ง | อนุมัติใบเดียว ใบที่สองจะล้มเองเพราะเรื่องไม่อยู่ในสถานะ `ready` แล้ว |
+| การ์ดอนุมัติเผยแพร่ซ้ำ 2 ใบ | `บก.บห.` ขอเผยแพร่เรื่องเดิม 2 ครั้ง | อนุมัติใบแรก แล้วกด "ปฏิเสธ" ที่ใบที่สอง (ถ้ากดอนุญาตจะได้ error "เผยแพร่ไปแล้ว") ห้ามปล่อยค้าง เพราะการ์ดไม่ปิดเอง และ run ของ `บก.บห.` จะหยุดรออยู่ |
 | เปิด `ui/index.html` ในเบราว์เซอร์แล้วขึ้น "ต้องเปิดผ่านแอป BotPress" | UI ต้องใช้ bridge ของ host | เปิดผ่าน `BotPress.exe` เท่านั้น เพราะไม่มีเว็บ |
 | แก้ `ui/` แล้วแอปไม่เปลี่ยน | แอปอ่านจาก `dist\ui` | publish ใหม่ หรือใช้ `BOTPRESS_UI_DIR` |
 
@@ -860,8 +899,8 @@ D:\botpress
 
 - **คุณภาพข่าวขึ้นกับโมเดลบนเครื่อง** Gemma 4 อาจใช้แหล่งข่าวที่ไม่น่าเชื่อถือ หรือข้ามขั้นตอน "ส่งแล้วรอ" ด่านอนุมัติของคนจึงเป็นตัวป้องกันหลัก
 - บอทไม่โพสต์โซเชียลจริงและไม่สร้างภาพ มีแค่ข้อความร่างกับบรีฟภาพ
-- เรื่องที่ถึง `ready` หลัง routine 17:30 จะรอถึงรอบ 12:00 ของวันถัดไป ยกเว้นจะกด "รันเลย" เอง
-- โต๊ะข่าวไม่ตรวจบทบาท (`by` เป็นข้อความอิสระ) การจำกัดอยู่ที่สิทธิ์ MCP และ approval ของ Rakazo
+- ปกติ `บก.ต้นฉบับ` ถูกสั่งให้ `message_bot` หา `บก.บห.` ทันทีที่ย้ายเรื่องเป็น `ready` การตรวจและการขออนุมัติจึงเกิดได้ทุกเวลา แต่ถ้า `บก.ต้นฉบับ` ไม่ส่งข้อความ (Gemma ข้ามบ่อย) หรือสายข้อความหมด 6 hop เรื่องที่ถึง `ready` หลังรอบ 17:30 จะรอถึง routine 12:00 ของวันถัดไป ยกเว้นจะกด "รันเลย" เอง
+- โต๊ะข่าวไม่ตรวจบทบาท (`by` เป็นข้อความอิสระ) การจำกัดอยู่ที่สิทธิ์ MCP และ approval ของ Rakazo · ทดสอบจริงแล้วเจอ: `นักข่าว AI` เขียนช่อง `factcheck` ของเรื่องตัวเองได้ (ดูงานข้อ 1)
 - `stories.json` ถูกเขียนใหม่ทั้งไฟล์ทุกครั้งที่มีการแก้ไข ใช้ได้ดีที่หลักร้อยเรื่อง ถ้าถึงหลักพันควรย้ายไป append-only หรือ SQLite (`server.mjs:98`)
 - โต๊ะข่าวไม่มี file lock ห้ามรัน 2 process บน `NEWS_DIR` เดียวกัน
 - ไม่มีตัวจัดการ error ตอน listen ถ้า port ชน (`EADDRINUSE`) process จะล้ม (ยังไม่ได้ทดสอบ)
@@ -876,12 +915,17 @@ D:\botpress
 
 ### งานถัดไปที่แนะนำ
 
-1. ให้ BotTeam ไม่ยอมเปิดขณะที่ BotPress ทำงานอยู่ ตอนนี้ฝั่ง BotTeam ยังไม่กัน และต้องแก้ใน `D:\localai` ซึ่งต้องขอลุงจืดก่อน
-2. ให้ Monitor อ่านบรรทัด `NEWSDESK <state>` จาก `botpress.sh status` แล้วแสดงสถานะของโต๊ะข่าว (`ParseRakazo` ใน `Monitor.cs` ยังข้ามบรรทัดนี้)
-3. กันการ์ดอนุมัติเผยแพร่ซ้ำ เมื่อ `บก.บห.` ขอเผยแพร่เรื่องเดิม 2 ครั้ง
-4. ถ้าลุงจืดต้องการ ให้เพิ่มการโพสต์โซเชียลจริงหรือการสร้างภาพ โดยต้องมีด่านอนุมัติแบบเดียวกับ `publish_story`
-5. ติดตามผล `tests/newsroom-live.mjs` แล้วปรับ prompt ในจุดที่ต้อง kick บ่อย
-6. ทำให้เปลี่ยน path ได้ ถ้าจะย้าย repo ออกจาก `D:\botpress`
+ผลทดสอบจริงครั้งแรก (2026-10-04, Gemma 4, `tests/newsroom-live.mjs` 90 นาที): ข่าวเดินจาก pitched → assigned → drafting → factcheck ได้ ผู้ตรวจจับคำผิดในพาดหัวและตีกลับได้จริง แต่หมดเวลาที่ `factcheck` ยังไม่ถึง `published` และเจอ 2 ปัญหาที่ควรแก้ก่อน:
+
+1. **ให้โต๊ะข่าวตรวจบทบาท** ตอนนี้ `update_story` เชื่อค่า `by` ที่บอทส่งมาเอง ในการทดสอบ `นักข่าว AI` เขียนช่อง `factcheck` ของเรื่องตัวเองได้ ควรให้ `newsdesk/server.mjs` จำกัดว่าใครแก้ช่องไหน/ย้ายสถานะไหนได้ เช่น ช่อง `factcheck` และ `factcheck → editing` ทำได้เฉพาะผู้ตรวจตาม beat, นักข่าวแก้ได้เฉพาะเรื่องที่ `reporter` เป็นตัวเอง · ข้อควรรู้: `by` ยังปลอมได้ ถ้าจะกันจริงต้องรู้ตัวตนผู้เรียกจาก Rakazo (ยังไม่ได้ตรวจว่า Rakazo ส่งข้อมูลบอทผู้เรียกมาให้ MCP หรือไม่)
+2. **จำกัดรอบตีกลับ** เรื่องเดียวเด้งระหว่างนักข่าวกับผู้ตรวจหลายรอบ (ผู้ตรวจขอแหล่งอ้างอิงของประเด็นผลกระทบต่อไทย นักข่าวส่งกลับมาโดยไม่เติม) ควรนับรอบ `factcheck → drafting` ใน `history` ถ้าเกิน 2 รอบให้ server ปฏิเสธการส่งตรวจซ้ำและบอกให้แจ้งหัวหน้าข่าวตัดสิน (ตัดประเด็นที่ไม่มีแหล่ง หรือ `killed`)
+3. ให้ BotTeam ไม่ยอมเปิดขณะที่ BotPress ทำงานอยู่ ตอนนี้ฝั่ง BotTeam ยังไม่กัน และต้องแก้ใน `D:\localai` ซึ่งต้องขอลุงจืดก่อน
+4. ให้ Monitor อ่านบรรทัด `NEWSDESK <state>` จาก `botpress.sh status` แล้วแสดงสถานะของโต๊ะข่าว (`ParseRakazo` ใน `Monitor.cs` ยังข้ามบรรทัดนี้)
+5. กันการ์ดอนุมัติเผยแพร่ซ้ำ เมื่อ `บก.บห.` ขอเผยแพร่เรื่องเดิม 2 ครั้ง
+6. ถ้าลุงจืดต้องการ ให้เพิ่มการโพสต์โซเชียลจริงหรือการสร้างภาพ โดยต้องมีด่านอนุมัติแบบเดียวกับ `publish_story`
+7. ติดตามผล `tests/newsroom-live.mjs` แล้วปรับ prompt ในจุดที่ต้อง kick บ่อย
+8. ทำให้เปลี่ยน path ได้ ถ้าจะย้าย repo ออกจาก `D:\botpress`
+9. เปิดแอปเองตอน logon เพื่อให้ routine 07:00 ทำงานหลังรีบูต (ถ้าลุงจืดต้องการ)
 
 ---
 
@@ -899,3 +943,29 @@ D:\botpress
 7. **`mydocs/`** (ถ้าวันหนึ่งมีโฟลเดอร์นี้) เป็นข้อกำหนดของลุงจืด AI อ่านได้อย่างเดียว ห้ามแก้ ลบ หรือเพิ่มไฟล์
 8. Rakazo `stop` ต้องเป็นแบบไม่ทำลายข้อมูล ห้ามใช้ `docker compose down -v` เพราะจะลบฐานข้อมูลและ home ของบอท (ตามที่ `rakazo.sh` ระบุ)
 9. กฎตัวเลขเงินและบัญชีไม่เกี่ยวกับโปรเจกต์นี้
+
+---
+
+## 16. อภิธานศัพท์
+
+| คำ | ความหมายใน README นี้ |
+|---|---|
+| **Rakazo** | แพลตฟอร์มรันบอท AI (v0.1.6) ที่รันด้วย docker ใน WSL เก็บบอท แชท ห้อง routine และการอนุมัติ |
+| **MCP** | Model Context Protocol วิธีที่บอทเรียกเครื่องมือภายนอก โต๊ะข่าว (`newsdesk/server.mjs`) คือ MCP server ตัวหนึ่ง |
+| **routine** | งานตั้งเวลาของ Rakazo (cron + timezone) ที่สั่งบอทให้ทำงานตาม prompt ที่กำหนด |
+| **approval rule** | กฎของ Rakazo ที่บังคับให้หยุดรอคนกดอนุมัติก่อนเรียกเครื่องมือบางตัว มีผลทั้งบัญชี |
+| **hop** | ทุกครั้งที่บอทส่งงานต่อให้บอทอื่นด้วย `message_bot` นับเป็น 1 hop Rakazo หยุดสายเมื่อครบ 6 hop |
+| **slot** | จำนวนคำขอที่ llama-server ประมวลผลพร้อมกันได้ (`-np 2` = 2 slot) เกินจากนี้ต้องเข้าคิว |
+| **คอมพิวเตอร์ของบอท** | container ส่วนตัวของบอทแต่ละตัว (มีจอ browser และ terminal) ที่ Rakazo สร้างให้ |
+| **kick** | สั่ง routine ให้รันทันทีด้วย "รันเลย" (`routines/testRun`) แทนการรอตามเวลา |
+| **กวาด (sweep)** | routine ที่ไล่หาเรื่องในสถานะของตัวเองบนโต๊ะข่าวแล้วทำต่อทีละเรื่อง |
+| **ensure** | ขั้นใน `botpress.sh` ที่ตรวจว่า container `botpress-newsdesk` รันอยู่และผูกกับ worker ตัวปัจจุบัน ถ้าไม่ใช่ก็สร้างใหม่ |
+| **revive** | `botpress.sh revive` ต่อ network ของคอมพิวเตอร์บอทกลับ ปลุกตัวที่ตาย และ ensure โต๊ะข่าว แอปเรียกทุก 1 นาที |
+| **takeover** | ลุงจืดเข้าไปควบคุมจอคอมพิวเตอร์ของบอทเองแทนบอทชั่วคราว |
+| **CDP / devtools port** | Chrome DevTools Protocol ที่เปิดด้วย `--devtools-port` ให้สคริปต์ (`tests/`, `seed-bots.mjs`) สั่งงานแอปผ่าน WebView2 |
+| **oRPC** | รูปแบบ RPC ที่ Rakazo ใช้ (`POST /rpc/<path>`) `RakazoClient.cs` เป็นตัวส่งต่อแบบ allow-list |
+| **SSE** | Server-Sent Events ช่องที่ Rakazo ส่งความคืบหน้าของบอทแบบสดมาให้แอป |
+| **socat bridge / docker0** | socat ฟังที่ `172.17.0.1` (IP ของ docker0 ใน WSL) แล้วส่งต่อไปที่ Windows ให้ container เรียก LLM ได้ |
+| **virtual host** | ชื่อ `https://botpress.example/` ที่ WebView2 map ไปที่โฟลเดอร์ `ui` บนดิสก์ ไม่ใช่เว็บจริง |
+| **idempotent** | รันซ้ำกี่ครั้งก็ได้ผลเท่าเดิม ไม่สร้างของซ้ำ |
+| **beat (สายข่าว)** | หมวดข่าวที่นักข่าวแต่ละคนรับผิดชอบ เช่น `ai`, `security` |

@@ -9,5 +9,5 @@ news/
 *.key
 credentials*.json
 # machine state / run logs (not source)
-botteam-paused.json
+botteam-paused*.json
 *.log
