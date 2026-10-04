@@ -11,3 +11,12 @@
   root.dataset.theme = resolved();
   window.Theme = { choice, resolved, set: t => { localStorage.setItem("bt.theme", t); apply(); } };
 })();
+const THEMES = {
+  chaylueklab: {
+    bg: '#0a0a0a',
+    gold: '#d4af37',
+    card: '#1a1a1a',
+    text: '#f5f5f5'
+  }
+}
+localStorage.setItem('theme','chaylueklab');
